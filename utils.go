@@ -1,7 +1,9 @@
 package crawlhub
 
 import (
+	"fmt"
 	"math/rand"
+	"net/url"
 	"time"
 )
 
@@ -18,4 +20,12 @@ func randomUserAgent() string {
 	rand.Seed(time.Now().Unix())
 	randNum := rand.Int() % len(userAgents)
 	return userAgents[randNum]
+}
+
+func ParseBaseURL(u string) (string, error) {
+	parsed, err := url.Parse(u)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s://%s", parsed.Scheme, parsed.Host), nil
 }

@@ -23,16 +23,13 @@ func getRequest(targetUrl string) (*http.Response, error) {
 	return res, nil
 }
 
-func discoverLinks(response *http.Response, baseURL string) []string {
-	if response != nil {
-		doc, _ := goquery.NewDocumentFromResponse(response)
-		foundUrls := []string{}
-		if doc != nil {
-			doc.Find("a").Each(func(i int, s *goquery.Selection) {
-				res, _ := s.Attr("href")
-				foundUrls = append(foundUrls, res)
-			})
-		}
+func discoverLinks(doc *goquery.Document, baseURL string) []string {
+	foundUrls := []string{}
+	if doc != nil {
+		doc.Find("a").Each(func(i int, s *goquery.Selection) {
+			res, _ := s.Attr("href")
+			foundUrls = append(foundUrls, res)
+		})
 		return foundUrls
 	} else {
 		return []string{}
@@ -65,7 +62,9 @@ func crawlPage(targetUrl string, baseUrl string, parser Parser, token chan struc
 	token <- struct{}{}
 	resp, _ := getRequest(targetUrl)
 	<-token
-	links := discoverLinks(resp, baseUrl)
+	doc, _ := goquery.NewDocumentFromResponse(resp)
+	pageResults := parser.ParsePage(doc)
+	links := discoverLinks(doc, baseUrl)
 	foundUrls := []string{}
 	for _, link := range links {
 		ok, correctLink := resolveRelativeLinks(link, baseUrl)
@@ -75,12 +74,10 @@ func crawlPage(targetUrl string, baseUrl string, parser Parser, token chan struc
 			}
 		}
 	}
-	offendingItems := parser.ParsePage(resp)
-	fmt.Println(offendingItems)
-	return foundUrls, offendingItems
+	return foundUrls, pageResults
 }
 
-func StandardCrawl(baseDomain, startUrl string, parser Parser, concurrency int) {
+func StandardCrawl(baseDomain, startUrl, callback string, parser Parser, concurrency int) {
 	worklist := make(chan []string)
 	var n int
 	n++
@@ -93,13 +90,16 @@ func StandardCrawl(baseDomain, startUrl string, parser Parser, concurrency int) 
 			if !seen[link] {
 				seen[link] = true
 				n++
-				go func(link string, baseDomain string, parser Parser, token chan struct{}) {
-					foundLinks, offendingItems := crawlPage(link, baseDomain, parser, token)
-					fmt.Println(offendingItems)
+				go func(link string, baseDomain, callback string, parser Parser, token chan struct{}) {
+					foundLinks, pageResults := crawlPage(link, baseDomain, parser, token)
+					fmt.Println(pageResults)
+					go func(callbackURL string, results ScrapeResult) {
+						postCallback(callbackURL, results)
+					}(callback, pageResults)
 					if foundLinks != nil {
 						worklist <- foundLinks
 					}
-				}(link, baseDomain, parser, tokens)
+				}(link, baseDomain, callback, parser, tokens)
 			}
 		}
 	}

@@ -1,7 +1,7 @@
 package crawlhub
 
 import (
-	"net/http"
+	"github.com/PuerkitoBio/goquery"
 )
 
 type ScrapeResult struct {
@@ -11,5 +11,5 @@ type ScrapeResult struct {
 }
 
 type Parser interface {
-	ParsePage(*http.Response) ScrapeResult
+	ParsePage(*goquery.Document) ScrapeResult
 }
