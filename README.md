@@ -49,3 +49,7 @@ func main() {
 }
 
 ```
+# Example Post
+```json
+{"start_url": "https://www.vox.com/", "max_concurrency": 2, "callback_url": "http://127.0.0.1:5000/api/"}
+```
