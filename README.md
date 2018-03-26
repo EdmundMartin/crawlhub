@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/EdmundMartin/crawlhub"
+	"github.com/PuerkitoBio/goquery"
 	"github.com/gorilla/mux"
 )
 
@@ -22,17 +23,21 @@ type ScrapeRequest struct {
 type DummyParser struct {
 }
 
-func (d DummyParser) ParsePage(*http.Response) crawlhub.ScrapeResult {
-	return crawlhub.ScrapeResult{}
+func (d DummyParser) ParsePage(doc *goquery.Document) crawlhub.ScrapeResult {
+	scrape := crawlhub.ScrapeResult{}
+	scrape.PageTitle = doc.Find("title").First().Text()
+	scrape.PrimaryH1 = doc.Find("h1").First().Text()
+	return scrape
 }
 
 func StartScrapeEndpoint(w http.ResponseWriter, req *http.Request) {
 	var scrapeJob ScrapeRequest
 	json.NewDecoder(req.Body).Decode(&scrapeJob)
 	parser := DummyParser{}
-	go func(url string, parser DummyParser, concurrency int) {
-		crawlhub.StandardCrawl(url, url, parser, concurrency)
-	}(scrapeJob.StartURL, parser, scrapeJob.MaxConcurrency)
+	go func(url, callback string, parser DummyParser, concurrency int) {
+		baseDomain, _ := crawlhub.ParseBaseURL(url)
+		crawlhub.StandardCrawl(baseDomain, url, callback, parser, concurrency)
+	}(scrapeJob.StartURL, scrapeJob.CallbackURL, parser, scrapeJob.MaxConcurrency)
 	fmt.Println(scrapeJob)
 	json.NewEncoder(w).Encode(scrapeJob)
 }
